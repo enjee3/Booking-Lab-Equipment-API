@@ -5,6 +5,7 @@ Booking features are planned.
 
 ## Current features
 
+- Update equipment details and active status.
 - Check API health.
 - List equipment.
 - Find equipment by ID.
@@ -18,6 +19,7 @@ Booking features are planned.
 | GET | /equipment | List equipment |
 | GET | /equipment/{equipment_id} | Find equipment |
 | POST | /equipment | Create equipment |
+| PUT | /equipment/{equipment_id} | Update existing equipment |
 
 ## Run locally
 

@@ -11,19 +11,17 @@ def health_check():
     return {"status": "ok"}
 
 
-equipment = [
-    {
-        "id": 1,
-        "name": "Microscope",
-        "location": "Lab A",
-        "is_active": True,
-    },
-    {
-        "id": 2,
-        "name": "Centrifuge",
-        "location": "Lab B",
-        "is_active": True,
-    },
+equipment = [{
+"id": 1,
+"name": "Microscope",
+"location": "Lab A",
+"is_active": True,
+},{
+"id": 2,
+"name": "Centrifuge",
+"location": "Lab B",
+"is_active": True,
+},
 ]
 
 
@@ -74,7 +72,22 @@ def create_equipment(data: EquipmentCreate):
             "location": data.location,
             "is_active": True,
         }
-
         equipment.append(new_item)
-
     return new_item
+
+class EquipmentUpdate(EquipmentCreate):
+    is_active: bool
+
+
+@app.put("/equipment/{equipment_id}")
+def update_equipment(equipment_id: int, data: EquipmentUpdate):
+    with equipment_lock:
+        for item in equipment:
+            if item["id"] == equipment_id:
+                item.update(data.model_dump())
+                return item.copy()
+
+    raise HTTPException(
+        status_code=404,
+        detail="Equipment not found",
+    )
