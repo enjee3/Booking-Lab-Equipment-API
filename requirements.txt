@@ -6,9 +6,14 @@ fastapi==0.143.3
 h11==0.16.0
 idna==3.20
 opentelemetry-api==1.45.1
+psycopg==3.3.6
+psycopg-binary==3.3.6
 pydantic==2.14.1
 pydantic_core==2.50.1
+python-dotenv==1.2.4
+SQLAlchemy==2.1.5
 starlette==1.8.0
 typing-inspection==0.4.4
 typing_extensions==4.16.0
+tzdata==2026.5
 uvicorn==0.54.0

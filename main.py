@@ -1,48 +1,20 @@
-from threading import Lock
+from typing import Annotated
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from database import get_db
+from models import Equipment
 
 app = FastAPI(title="Lab Equipment Booking API")
 
-
-@app.get("/health")
-def health_check():
-    return {"status": "ok"}
+# Give each request a database session.
+DbSession = Annotated[Session, Depends(get_db)]
 
 
-equipment = [{
-"id": 1,
-"name": "Microscope",
-"location": "Lab A",
-"is_active": True,
-},{
-"id": 2,
-"name": "Centrifuge",
-"location": "Lab B",
-"is_active": True,
-},
-]
-
-
-@app.get("/equipment")
-def list_equipment():
-    return equipment
-
-
-@app.get("/equipment/{equipment_id}")
-def get_equipment(equipment_id: int):
-    for item in equipment:
-        if item["id"] == equipment_id:
-            return item
-
-    raise HTTPException(
-        status_code=404,
-        detail="Equipment not found",
-    )
-
-
-# Validate the name and location sent in a creation request.
+# Validate incoming equipment details.
 class EquipmentCreate(BaseModel):
     model_config = ConfigDict(
         str_strip_whitespace=True,
@@ -53,41 +25,78 @@ class EquipmentCreate(BaseModel):
     location: str = Field(min_length=1, max_length=100)
 
 
-# This lock belongs outside the class.
-equipment_lock = Lock()
-
-
-# Assign a new ID, add the equipment, and return its record.
-@app.post("/equipment", status_code=201)
-def create_equipment(data: EquipmentCreate):
-    with equipment_lock:
-        new_id = max(
-            (item["id"] for item in equipment),
-            default=0,
-        ) + 1
-
-        new_item = {
-            "id": new_id,
-            "name": data.name,
-            "location": data.location,
-            "is_active": True,
-        }
-        equipment.append(new_item)
-    return new_item
-
 class EquipmentUpdate(EquipmentCreate):
     is_active: bool
 
 
-@app.put("/equipment/{equipment_id}")
-def update_equipment(equipment_id: int, data: EquipmentUpdate):
-    with equipment_lock:
-        for item in equipment:
-            if item["id"] == equipment_id:
-                item.update(data.model_dump())
-                return item.copy()
+# Define the equipment information returned by the API.
+class EquipmentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
 
-    raise HTTPException(
-        status_code=404,
-        detail="Equipment not found",
+    id: int
+    name: str
+    location: str
+    is_active: bool
+
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
+
+@app.get("/equipment", response_model=list[EquipmentRead])
+def list_equipment(db: DbSession):
+    statement = select(Equipment).order_by(Equipment.id)
+    return db.scalars(statement).all()
+
+
+@app.get("/equipment/{equipment_id}", response_model=EquipmentRead)
+def get_equipment(equipment_id: int, db: DbSession):
+    item = db.get(Equipment, equipment_id)
+
+    if item is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Equipment not found",
+        )
+
+    return item
+
+
+@app.post("/equipment", response_model=EquipmentRead, status_code=201)
+def create_equipment(data: EquipmentCreate, db: DbSession):
+    item = Equipment(
+        name=data.name,
+        location=data.location,
     )
+
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+
+    return item
+
+
+@app.put("/equipment/{equipment_id}", response_model=EquipmentRead)
+def update_equipment(
+    equipment_id: int,
+    data: EquipmentUpdate,
+    db: DbSession,
+):
+    # Lock this row while updating it.
+    item = db.get(Equipment, equipment_id, with_for_update=True)
+
+    if item is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Equipment not found",
+        )
+
+    item.name = data.name
+    item.location = data.location
+    item.is_active = data.is_active
+
+    db.commit()
+    db.refresh(item)
+
+    return item
