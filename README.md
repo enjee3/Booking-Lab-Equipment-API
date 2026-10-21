@@ -10,6 +10,7 @@ Equipment management is implemented; booking features are planned.
 - Create equipment with validated names and locations.
 - Update equipment details and active status.
 - Store equipment in PostgreSQL so records survive API restarts.
+- Track database schema changes with Alembic migrations.
 
 ## API endpoints
 
@@ -78,15 +79,32 @@ Save the lab_app password using a hidden prompt:
 
 Keep .env private. Commit only the placeholder .env.example.
 
-### 4. Check the connection and create tables
+### 4. Check the connection and apply migrations
+
+Run these commands from the project folder:
 
 ```bat
 .venv\Scripts\python.exe database.py
 .venv\Scripts\python.exe init_db.py
 ```
 
-The table starts empty. init_db.py creates missing tables;
-it does not migrate existing table definitions.
+`init_db.py` applies pending Alembic migrations to the database
+configured in `.env`. On a fresh database, the initial migration
+creates an empty equipment table.
+
+Run `init_db.py` whenever you pull or create new migrations,
+before starting the API.
+
+To check migration status:
+
+```bat
+.venv\Scripts\python.exe -m alembic current
+.venv\Scripts\python.exe -m alembic check
+```
+
+`current` displays the recorded migration version.
+`check` reports whether Alembic detects schema differences
+between the database and the SQLAlchemy models.
 
 ### 5. Start the API
 

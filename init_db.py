@@ -1,7 +1,13 @@
-from database import engine
-from models import Base
+from pathlib import Path
+
+from alembic import command
+from alembic.config import Config
 
 
 if __name__ == "__main__":
-    Base.metadata.create_all(bind=engine)
-    print("Equipment table is ready.")
+    config_path = Path(__file__).resolve().with_name("alembic.ini")
+    config = Config(str(config_path))
+
+    command.upgrade(config, "head")
+
+    print("Database migrations are up to date.")
